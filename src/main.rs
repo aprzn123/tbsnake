@@ -54,7 +54,7 @@ impl Snake {
         false
     }
 
-    fn draw<T: sdl2::render::RenderTarget>(&self, canvas: &mut sdl2::render::Canvas<T>) {
+    fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         canvas.set_draw_color(Color::RGB(200, 0, 0));
         // for i in self.pos.iter() {
         //     canvas.fill_rect(sdl2::rect::Rect::new(

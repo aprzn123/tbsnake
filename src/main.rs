@@ -46,9 +46,9 @@ impl Snake {
     fn new(pos: VecDeque<GridPosition>, facing: Direction) -> Self {
         Snake { pos, facing, remaining_extensions: 0 }
     }
-    fn point(&mut self, dir: Direction) -> bool {
-        if !Direction::opposite(self.facing, dir) || self.pos.len() == 1 {
-            self.facing = dir; 
+    fn point(&mut self, dir: &Direction) -> bool {
+        if !Direction::opposite(self.facing, *dir) || self.pos.len() == 1 {
+            self.facing = dir.clone(); 
             return true
         }
         false
@@ -56,25 +56,13 @@ impl Snake {
 
     fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         canvas.set_draw_color(Color::RGB(200, 0, 0));
-        // for i in self.pos.iter() {
-        //     canvas.fill_rect(sdl2::rect::Rect::new(
-        //         i.x * TILE_SIZE as i32 + 2,
-        //         i.y * TILE_SIZE as i32 + 2,
-        //         (TILE_SIZE - 4) as u32,
-        //         (TILE_SIZE - 4) as u32
-        //     )).unwrap();
-        // }
-        for i in 0..(self.pos.len() - 1) {
-            canvas.draw_line(
-                sdl2::rect::Point::new(
-                    self.pos[i].x * TILE_SIZE as i32 + TILE_SIZE as i32 / 2,
-                    self.pos[i].y * TILE_SIZE as i32 + TILE_SIZE as i32 / 2,
-                ), 
-                sdl2::rect::Point::new(
-                    self.pos[i + 1].x * TILE_SIZE as i32 + TILE_SIZE as i32 / 2,
-                    self.pos[i + 1].y * TILE_SIZE as i32 + TILE_SIZE as i32 / 2,
-                ),
-            ).unwrap();
+        for i in self.pos.iter() {
+            canvas.fill_rect(sdl2::rect::Rect::new(
+                i.x * TILE_SIZE as i32 + 2,
+                i.y * TILE_SIZE as i32 + 2,
+                (TILE_SIZE - 4) as u32,
+                (TILE_SIZE - 4) as u32
+            )).unwrap();
         }
     }
 
@@ -129,7 +117,7 @@ impl Food {
         snake.extend(self.power);
     }
     
-    fn draw<T: sdl2::render::RenderTarget>(&self, canvas: &mut sdl2::render::Canvas<T>) {
+    fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         canvas.set_draw_color(Color::RGB(0, 0, 150));
         canvas.fill_rect(sdl2::rect::Rect::new(
             self.pos.x * TILE_SIZE as i32 + 2,
@@ -157,11 +145,11 @@ impl GameState {
             }
         }
         for i in to_replace {
-            self.food[i] = Food::randomize(1);
+            self.food[i] = Food::randomize(StdRng::from_entropy().gen_range(0..5));
         }
     }
 
-    fn draw<T: sdl2::render::RenderTarget>(&self, canvas: &mut sdl2::render::Canvas<T>) {
+    fn draw(&self, canvas: &mut sdl2::render::Canvas<sdl2::video::Window>) {
         self.player.draw(canvas);
         for food in self.food.iter() {
             food.draw(canvas);
@@ -189,12 +177,16 @@ fn main() {
     canvas.clear();
     canvas.present();
     let mut event_pump = sdl_context.event_pump().unwrap();
+    let mut frame_number = 0;
 
     'running: loop {
+        frame_number = (frame_number + 1) % 12;
         let next_frame_time = std::time::Instant::now() + std::time::Duration::from_nanos(16_666_667);
         canvas.set_draw_color(Color::RGB(100, 200, 0));
         canvas.clear();
         
+        let mut target_dir: Option<Direction> = None;
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. } => { break 'running },
@@ -202,15 +194,24 @@ fn main() {
                     None => {},
                     Some(k) => match k {
                         Keycode::Escape => { break 'running },
-                        Keycode::Up => { if game.player.point(Direction::Up) {game.step();} },
-                        Keycode::Down => { if game.player.point(Direction::Down) {game.step();} },
-                        Keycode::Left => { if game.player.point(Direction::Left) {game.step();} },
-                        Keycode::Right => { if game.player.point(Direction::Right) {game.step();} },
+                        Keycode::Up => { target_dir = Some(Direction::Up) },
+                        Keycode::Down => { target_dir = Some(Direction::Down) },
+                        Keycode::Left => { target_dir = Some(Direction::Left) },
+                        Keycode::Right => { target_dir = Some(Direction::Right) },
                         _ => { }
                     }
                 },
                 _ => { },
             }
+        }
+
+        match target_dir {
+            None => {},
+            Some(d) => { game.player.point(&d); }
+        }
+        
+        if frame_number == 0 {
+            game.step();
         }
 
         game.draw(&mut canvas);
